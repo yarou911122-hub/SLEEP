@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="睡眠門診個案管理系統 V1，醫護人員前台示範原型。">
+  <title>睡眠門診｜個案管理 V1</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/mock-data.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳至主要內容</a>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">眠</span><div>睡眠門診<small>個案管理系統</small></div></div>
+      <p class="nav-label">工作區</p>
+      <nav aria-label="主要導覽">
+        <a href="#home" data-page="home">首頁</a>
+        <a href="#cases" data-page="cases">個案管理</a>
+        <a href="#visits" data-page="visits">回診管理</a>
+        <a href="#assessments" data-page="assessments">評估表單狀態</a>
+        <a href="#notifications" data-page="notifications">LINE 通知狀態</a>
+      </nav>
+      <div class="sidebar-note"><span class="version">V1 · 第一步</span><p>醫護人員前台原型<br>僅供流程與介面確認</p></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar"><span>門診工作台</span><span class="demo-label">示範模式 · 全部為假資料</span></header>
+      <main id="main" tabindex="-1"></main>
+      <footer>未連接後端、真實醫療資料或 LINE API。重新整理後恢復預設示範畫面。</footer>
+    </div>
+  </div>
+  <noscript>請啟用瀏覽器的 JavaScript，才能顯示示範頁面。</noscript>
+</body>
+</html>
