@@ -98,14 +98,20 @@
   }
   function home(main) {
     const pending = M.pending(data);
-    const reminders = M.pending(data, '回診提醒');
-    const forms = M.pending(data, '表單確認');
-    const contacts = pending.filter(t => !['表單確認', '回診提醒'].includes(t.type));
-    const todayVisits = data.visits.filter(v => v.date === data.referenceDate && v.status === '已安排');
-    main.innerHTML = heading('今天，先處理這些事', '選擇待辦類型，直接進入個案接續處理。', link('查找個案', '#cases', 'button secondary')) + `<div class="stats">${[['待聯繫', contacts.length, '回診確認與一般聯繫', 'contact'], ['待表單確認', forms.length, '人工查閱後登錄結果', '表單確認'], ['待回診提醒', reminders.length, '提醒時間與地點', '回診提醒']].map(([label, count, hint, filter]) => `<button class="stat" data-action="home-filter" data-id="${filter}"><span>${label}</span><strong>${count}<small>件</small></strong><span class="stat-hint">${hint}</span><span class="stat-link">查看待辦</span></button>`).join('')}</div><div class="home-grid">${panel('到期待辦', table(['個案', '待辦事項', '到期日', '狀態', '操作'], taskRows(pending)), link('全部待辦', '#notifications'))}${panel('今日回診', `<div class="visit-cards">${todayVisits.length ? todayVisits.map(v => `<article><div class="visit-time">${v.time}</div><div>${personLink(v.caseId)}<p>${esc(v.location)}</p></div></article>`).join('') : '<p class="empty">今日沒有安排回診。</p>'}</div>`, link('回診清單', '#visits'))}</div><div class="workflow-note"><strong>操作順序</strong><span>查看待辦</span><span>開啟個案</span><span>人工聯繫或查閱</span><span>儲存處理結果</span></div>`;
+    const forms = data.assessments.filter(a => a.status !== '已確認').length;
+    const contacts = data.tasks.filter(t => t.status !== '已處理').length;
+    const month = data.referenceDate.slice(0, 7);
+    const monthVisits = data.visits.filter(v => v.date.startsWith(month) && v.status !== '已取消').length;
+    const recent = data.visits.filter(v => v.date >= data.referenceDate && v.status === '已安排').sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)).slice(0, 5);
+    const counts = ['追蹤中', '待初診', '已結案'].map(status => data.cases.filter(c => c.status === status).length);
+    const total = data.cases.length;
+    const first = total ? counts[0] / total * 100 : 0;
+    const second = total ? (counts[0] + counts[1]) / total * 100 : 0;
+    const chart = `<div class="case-chart"><div class="donut" role="img" aria-label="個案共 ${total} 人：追蹤中 ${counts[0]} 人、待初診 ${counts[1]} 人、已結案 ${counts[2]} 人" style="--segment-one:${first}%;--segment-two:${second}%"><div><strong>${total}</strong><span>個案總數</span></div></div><ul class="chart-legend">${['追蹤中', '待初診', '已結案'].map((name, i) => `<li><span class="legend-name"><i class="legend-color color-${i}"></i>${name}</span><strong>${counts[i]}</strong></li>`).join('')}</ul></div><p class="chart-note">依目前個案狀態統計，每位個案僅計一次。</p>`;
+    main.innerHTML = heading(`您好，${esc(user.name)}`, `示範工作日 ${data.referenceDate} · ${user.role}`) + `<div class="stats dashboard-stats">${[['個案總數', total, '目前收案人數', '#cases'], ['本月回診', monthVisits, `${month}，不含取消`, '#visits'], ['待確認表單', forms, '尚未人工確認', '#assessments'], ['待辦事項', contacts, '含未來到期的待辦', '#notifications']].map(([label, count, hint, href]) => `<a class="stat" href="${href}"><span>${label}</span><strong>${count}</strong><span class="stat-hint">${hint}</span></a>`).join('')}</div><div class="dashboard-grid">${panel('近期回診名單', table(['回診日期', '個案', '狀態', '備註'], recent.map(v => [v.date + `<small class="cell-sub">${v.time}</small>`, personLink(v.caseId), badge(v.date === data.referenceDate ? '今日回診' : '即將回診'), esc(v.location)])), link('查看全部', '#visits'))}${panel('個案狀態統計', chart)}</div>` + panel('今日待辦（含逾期）', table(['個案', '待辦事項', '到期日', '狀態', '操作'], taskRows(pending)), link('查看待辦', '#notifications'));
   }
   function cases(main) {
-    main.innerHTML = heading('個案管理', '先搜尋既有個案，確認沒有重複後再新增收案。') + panel('搜尋與選取個案', `<div class="filters"><label class="search-field">姓名／示範識別碼<input id="case-search" type="search" placeholder="輸入姓名或 DEMO-001" value="${esc(search)}"></label><label>個案狀態<select id="case-status"><option value="">全部狀態</option>${options(['待初診', '追蹤中', '已結案'], caseStatus)}</select></label></div><div class="list-summary"><span id="result-count" aria-live="polite"></span><div id="new-case-entry"></div></div><div id="case-results"></div>`);
+    main.innerHTML = heading('個案管理', '以姓名或識別碼查詢，確認既有資料後再新增收案。') + panel('個案清單', `<div class="filters case-query"><label class="search-field">姓名／示範識別碼<input id="case-search" type="search" placeholder="輸入姓名或 DEMO-001" value="${esc(search)}"></label><label>個案狀態<select id="case-status"><option value="">全部狀態</option>${options(['待初診', '追蹤中', '已結案'], caseStatus)}</select></label><div class="query-buttons">${button('查詢', 'query-cases', '', 'primary')}${button('清除', 'clear-cases', '', 'secondary')}</div></div><div class="list-summary"><span id="result-count" aria-live="polite"></span><div id="new-case-entry"></div></div><div id="case-results"></div>`);
     function update() {
       search = document.querySelector('#case-search').value;
       caseStatus = document.querySelector('#case-status').value;
@@ -121,6 +127,13 @@
     }
     document.querySelector('#case-search').addEventListener('input', update);
     document.querySelector('#case-status').addEventListener('change', update);
+    document.querySelector('[data-action="query-cases"]').addEventListener('click', update);
+    document.querySelector('[data-action="clear-cases"]').addEventListener('click', () => {
+      document.querySelector('#case-search').value = '';
+      document.querySelector('#case-status').value = '';
+      update();
+      document.querySelector('#case-search').focus();
+    });
     update();
   }
   function detail(main, id, requestedTab) {
@@ -128,9 +141,12 @@
     if (!c) { main.innerHTML = heading('找不到個案', '此識別碼不存在，請返回清單重新搜尋。') + link('返回個案清單', '#cases'); return; }
     const tabs = [['overview', '基本資料與待辦'], ['followup', '追蹤與回診'], ['assessment', '評估表單'], ['contact', 'LINE 聯繫紀錄']];
     const tab = tabs.some(([key]) => key === requestedTab) ? requestedTab : 'overview';
-    main.innerHTML = link('返回個案清單', '#cases', 'back-link') + heading(esc(c.name), `${esc(c.id)} · 收案日期 ${c.enrolled}`, badge(c.status)) + `<nav class="tabs" aria-label="個案資料分頁">${tabs.map(([key, title]) => `<a href="#detail/${c.id}/${key}" ${key === tab ? 'class="active" aria-current="page"' : ''}>${title}</a>`).join('')}</nav><div id="detail-content"></div>`;
+    main.innerHTML = `<div class="breadcrumbs">${link('個案管理', '#cases')}<span>／</span><span>個案詳細資料</span></div>` + heading('個案詳細資料', `${esc(c.name)} · ${esc(c.id)}`, button('編輯資料', 'edit-case', id, 'primary')) + `<nav class="tabs" aria-label="個案資料分頁">${tabs.map(([key, title]) => `<a href="#detail/${c.id}/${key}" ${key === tab ? 'class="active" aria-current="page"' : ''}>${title}</a>`).join('')}</nav><div id="detail-content"></div>`;
     const content = document.querySelector('#detail-content');
-    if (tab === 'overview') content.innerHTML = panel('目前待辦', table(['個案', '待辦事項', '到期日', '狀態', '操作'], taskRows(data.tasks.filter(t => t.caseId === id && t.status !== '已處理')))) + panel('基本資料', `<dl class="details"><div><dt>示範識別碼</dt><dd>${esc(c.id)}</dd></div><div><dt>姓名</dt><dd>${esc(c.name)}</dd></div><div><dt>收案日期</dt><dd>${c.enrolled}</dd></div><div><dt>個案狀態</dt><dd>${badge(c.status)}</dd></div></dl><div class="panel-copy"><h3>管理備註</h3><p class="preserve">${esc(c.note || '尚無備註')}</p></div>`, button('編輯基本資料', 'edit-case', id, 'secondary compact'));
+    if (tab === 'overview') {
+      const visit = M.nextVisit(data, id);
+      content.innerHTML = `<div class="patient-layout">${panel('基本資料', `<dl class="patient-facts"><div><dt>示範識別碼</dt><dd>${esc(c.id)}</dd></div><div><dt>姓名</dt><dd>${esc(c.name)}</dd></div><div><dt>收案日期</dt><dd>${c.enrolled}</dd></div><div><dt>個案狀態</dt><dd>${badge(c.status)}</dd></div><div><dt>未完成待辦</dt><dd>${data.tasks.filter(t => t.caseId === id && t.status !== '已處理').length} 件</dd></div><div><dt>備註</dt><dd class="preserve">${esc(c.note || '尚無備註')}</dd></div></dl>`)}<div>${panel('下一次回診', visit ? `<div class="next-visit"><strong>${visit.date}</strong><p>${visit.time} · ${esc(visit.location)}</p>${button('登記回診紀錄', 'visit-record', id, 'primary')}</div>` : `<div class="next-visit"><p>尚未安排回診</p>${button('安排回診', 'new-visit', id, 'primary')}</div>`)}${panel('快速操作', `<div class="quick-links">${link('回診與追蹤紀錄', `#detail/${id}/followup`)}${link('評估表單', `#detail/${id}/assessment`)}${link('LINE 聯繫紀錄', `#detail/${id}/contact`)}${button('新增追蹤紀錄', 'new-record', id, 'quiet')}</div>`)}</div></div>` + panel('目前待辦', table(['個案', '待辦事項', '到期日', '狀態', '操作'], taskRows(data.tasks.filter(t => t.caseId === id && t.status !== '已處理'))));
+    }
     if (tab === 'followup') content.innerHTML = panel('回診安排', visitTable(data.visits.filter(v => v.caseId === id)), button('安排回診', 'new-visit', id, 'secondary compact')) + panel('歷次追蹤與諮詢', recordList(id), button('新增追蹤紀錄', 'new-record', id, 'primary compact'));
     if (tab === 'assessment') content.innerHTML = `<p class="section-note">傳送連結不代表已填寫。請人工查閱回覆後，再登錄「已確認」。</p>` + panel('評估表單', assessmentTable(data.assessments.filter(a => a.caseId === id)), button('新增表單追蹤', 'new-assessment', id, 'secondary compact'));
     if (tab === 'contact') content.innerHTML = `<p class="section-note">請在官方 LINE 人工聯繫，再回到此處登錄；本系統不會發送訊息或判定已讀。</p>` + panel('聯繫紀錄', contactList(id), button('登錄聯繫結果', 'new-contact', id, 'primary compact'));
@@ -222,6 +238,12 @@
   }
 
   document.addEventListener('click', event => {
+    // 首頁摘要顯示所有未完成待辦，進入時同步清除舊篩選。
+    const summary = event.target.closest('.dashboard-stats a');
+    if (summary?.getAttribute('href') === '#notifications') {
+      taskType = 'all'; taskRange = 'all'; taskState = 'pending';
+    }
+    if (summary?.getAttribute('href') === '#assessments') assessmentFilter = '';
     const target = event.target.closest('[data-action]');
     if (!target) return;
     const { action, id } = target.dataset;
@@ -231,6 +253,7 @@
     if (action === 'new-case') caseEditor();
     if (action === 'edit-case') caseEditor(id);
     if (action === 'new-record') recordEditor(id);
+    if (action === 'visit-record') recordEditor(id);
     if (action === 'new-visit') visitEditor(id);
     if (action === 'edit-visit') { const v = data.visits.find(v => v.id === id); visitEditor(v.caseId, v.id); }
     if (action === 'new-assessment') newAssessment(id);
